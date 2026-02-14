@@ -1,7 +1,7 @@
 # config.py
 
 NAMESPACE = "dev"
-POD_NAME = "payment-service-7599dc754c-hghk7"
+POD_NAME = "payment-service-764f584496-lbvg2"
 DEPLOYMENT_NAME = "payment-service"
 APP_LABEL = "app=payment-service"
 

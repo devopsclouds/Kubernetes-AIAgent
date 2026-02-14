@@ -17,10 +17,10 @@ Observe → Reason → Decide → Act → Learn
 - Kubernetes cluster
 - kubectl configured
 - Python 3.9+
-- OpenAI API key
+
 
 ## Setup
 
 ```bash
 pip install -r requirements.txt
-export OPENAI_API_KEY="your_api_key"
+

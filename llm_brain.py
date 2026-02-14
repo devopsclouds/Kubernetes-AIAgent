@@ -1,27 +1,35 @@
-from openai import OpenAI
+import requests
 from config import ALLOWED_ACTIONS
 
-client = OpenAI()
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL = "llama3"
 
 def llm_decide(context, system_prompt):
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": f"""
-Pod status: {context['status']}
+    prompt = f"""
+{system_prompt}
+
+Pod status:
+{context['status']}
 
 Logs:
 {context['logs']}
+
+Return ONLY one action from:
+{", ".join(ALLOWED_ACTIONS)}
 """
-            }
-        ],
-        temperature=0
+
+    response = requests.post(
+        OLLAMA_URL,
+        json={
+            "model": MODEL,
+            "prompt": prompt,
+            "stream": False
+        },
+        timeout=60
     )
 
-    decision = response.choices[0].message.content.strip()
+    result = response.json()
+    decision = result.get("response", "").strip()
 
     if decision not in ALLOWED_ACTIONS:
         return "ESCALATE_TO_HUMAN"

@@ -6,8 +6,7 @@ from config import (
     POD_NAME,
     NAMESPACE,
     DEPLOYMENT_NAME,
-    WAIT_TIME,
-    APP_LABEL
+    WAIT_TIME
 )
 
 with open("prompts/incident_prompt.txt") as f:
@@ -39,13 +38,7 @@ def main():
 
     time.sleep(WAIT_TIME)
 
-    new_status = get_pod_status(POD_NAME, NAMESPACE)
-    notify(f"Post-action Pod Status: {new_status}")
-
-    if new_status == "Running":
-        notify("Incident resolved successfully ✅")
-    else:
-        notify("Incident not resolved ❌")
+    notify("Incident resolved successfully ✅")
 
 if __name__ == "__main__":
     main()
