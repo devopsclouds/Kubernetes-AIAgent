@@ -1,0 +1,36 @@
+alertmanager:
+  alertmanagerSpec:
+    alertmanagerConfigMatcherStrategy:
+      type: None
+    alertmanagerConfigSelector:
+      matchLabels:
+        release: prometheus
+    replicas: 2
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        memory: 64Mi
+grafana:
+  adminPassword: prom-operator
+  grafana.ini:
+    server:
+      domain: monitoring.local
+      root_url: http://monitoring.local/grafana
+      serve_from_sub_path: true
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
+prometheus:
+  prometheusSpec:
+    externalUrl: ""
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        memory: 256Mi
+    routePrefix: /
+prometheus-node-exporter:
+  hostNetwork: false

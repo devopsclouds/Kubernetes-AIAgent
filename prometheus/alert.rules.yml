@@ -1,0 +1,59 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: custom-alert-rules
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: custom.rules
+      rules:
+        - alert: HighCpuUsage
+          expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 50
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High CPU usage on instance {{ $labels.instance }}"
+            description: "CPU usage is above 50% (current value: {{ $value }}%)"
+
+     
+
+    - name: k8s-pod-health
+      rules:
+        - alert: PodNotRunning
+          expr: kube_pod_status_phase{namespace="dev", phase=~"Failed|Unknown"} > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} is not running"
+            description: "Pod {{ $labels.pod }} is in {{ $labels.phase }} phase"
+
+        - alert: PodPending
+          expr: kube_pod_status_phase{namespace="dev", phase="Pending"} > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} is stuck Pending"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been Pending for over 2 minutes - likely insufficient node resources"
+
+        - alert: PodOOMKilled
+          expr: kube_pod_container_status_last_terminated_reason{namespace="dev", reason="OOMKilled"} > 0
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} was OOMKilled"
+            description: "Pod {{ $labels.pod }} was killed due to out of memory"
+
+        - alert: PodImagePullBackOff
+          expr: kube_pod_container_status_waiting_reason{namespace="dev", reason=~"ImagePullBackOff|ErrImagePull"} > 0
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} has ImagePullBackOff"
+            description: "Pod {{ $labels.pod }} cannot pull its image"
