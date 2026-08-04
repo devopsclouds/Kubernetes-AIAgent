@@ -1,9 +1,0 @@
-Prerequisites:
-
-minikube start
-kubectl get nodes
-
-kubectl create namespace dev
-kubectl apply –f crash-pod.yaml
-kubectl get pods –n dev
-kubectl logs payment-service-xxxx -n dev
