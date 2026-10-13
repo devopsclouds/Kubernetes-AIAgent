@@ -1,4 +1,4 @@
-#helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring -f .
+
 alertmanager:
   alertmanagerSpec:
     alertmanagerConfigMatcherStrategy:

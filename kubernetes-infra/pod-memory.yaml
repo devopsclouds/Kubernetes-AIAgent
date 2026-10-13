@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-leak-demo
+  namespace: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memory-leak-demo
+  template:
+    metadata:
+      labels:
+        app: memory-leak-demo
+    spec:
+      containers:
+      - name: memory-leak-demo
+        image: python:3.11-slim
+        resources:
+          requests:
+            memory: "50Mi"
+          limits:
+            memory: "100Mi"
+        command: ["python3", "-c"]
+        args:
+          - |
+            import time
+            data = []
+            chunk = 10 * 1024 * 1024  # 10MB per step
+            while True:
+                data.append(bytearray(chunk))
+                print(f"Allocated {len(data) * 10}MB so far", flush=True)
+                time.sleep(5)

@@ -15,5 +15,5 @@ spec:
     spec:
       containers:
       - name: payment-service
-        image: busybox
+        image: nginx
         command: ["sh", "-c", "echo Starting app; sleep 30; exit 1"]
