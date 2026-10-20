@@ -1037,3 +1037,164 @@ One HAProxy entry point. One :443. NGINX handles the 10+ hostname/path routing.
 
 Suggested based on your interests
 Ad
+
+Yes. In your HAProxy setup, rate limiting means controlling how many requests one client can send within a period of time.
+
+Your example was:
+
+stick-table type ip size 100k expire 10m store http_req_rate(10s)
+
+http-request track-sc0 src
+
+http-request return status 429 \
+    content-type "text/plain" \
+    lf-string "Too many requests\n" \
+    if { sc_http_req_rate(0) gt 100 }
+
+Let's break it down.
+
+1. Stick table
+stick-table type ip size 100k expire 10m store http_req_rate(10s)
+
+This creates a memory table inside HAProxy.
+
+Think of it like:
+
+Client IP          Requests in last 10 sec
+------------------------------------------------
+10.10.1.20         25
+10.10.1.21         67
+10.10.1.22         135   ← too many
+type ip
+
+HAProxy tracks clients based on their source IP.
+
+So:
+
+192.168.1.10 → tracked separately
+192.168.1.20 → tracked separately
+192.168.1.30 → tracked separately
+size 100k
+
+HAProxy can keep up to approximately 100,000 tracking entries in this table.
+
+expire 10m
+
+If an IP isn't seen for 10 minutes, its entry can expire.
+
+store http_req_rate(10s)
+
+HAProxy records the number of HTTP requests from that IP during the last 10 seconds.
+
+2. Track the client IP
+http-request track-sc0 src
+
+src means:
+
+Take the source IP of this request and put it into stick table counter 0.
+
+For example:
+
+Request 1 → 192.168.1.50
+Request 2 → 192.168.1.50
+Request 3 → 192.168.1.50
+
+HAProxy keeps counting those requests.
+
+3. Check the request rate
+sc_http_req_rate(0)
+
+This asks:
+
+How many requests has the client in stick-table counter 0 made during the configured 10-second window?
+
+For example:
+
+IP: 192.168.1.50
+
+Requests in last 10 seconds = 75
+
+Then:
+
+sc_http_req_rate(0) = 75
+4. Block if greater than 100
+if { sc_http_req_rate(0) gt 100 }
+
+gt means greater than.
+
+So:
+
+0–100 requests / 10 sec → ALLOW
+101+ requests / 10 sec  → BLOCK
+
+HAProxy returns:
+
+status 429
+
+HTTP 429 means:
+
+Too Many Requests
+
+Complete example for your setup
+frontend https_front
+    bind :443 ssl crt /etc/haproxy/certs/
+
+    # Track requests by client IP
+    stick-table type ip size 100k expire 10m store http_req_rate(10s)
+
+    http-request track-sc0 src
+
+    # Block clients making >100 requests in 10 seconds
+    http-request return status 429 \
+        content-type "text/plain" \
+        lf-string "Too many requests\n" \
+        if { sc_http_req_rate(0) gt 100 }
+
+    default_backend nginx_ingress
+Your traffic flow
+                 Client
+                   |
+                   | 120 requests / 10 sec
+                   v
+              +---------+
+              | HAProxy |
+              +----+----+
+                   |
+             Count requests
+                   |
+             > 100 requests?
+                   |
+              YES  |
+                   v
+             HTTP 429
+        "Too many requests"
+
+The request doesn't reach NGINX Ingress once the rate-limit condition matches.
+
+One important point for your environment
+
+Because you're running HAProxy in Kubernetes, src may sometimes be the Kubernetes/Node/NAT IP rather than the real user's IP, depending on your network path.
+
+For example:
+
+User
+ ↓
+Router/NAT
+ ↓
+HAProxy
+
+HAProxy sees the NAT/source IP.
+
+But if you later put another proxy/load balancer in front:
+
+User
+ ↓
+AWS LB / Proxy
+ ↓
+HAProxy
+ ↓
+NGINX
+
+you may need to handle X-Forwarded-For carefully.
+
+For your current local Colima/KIND setup, using src is perfectly fine for learning and testing rate limiting.
