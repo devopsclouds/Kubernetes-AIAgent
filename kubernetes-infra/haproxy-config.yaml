@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-config
+  namespace: haproxy
+
+data:
+  haproxy.cfg: |
+    global
+        log stdout format raw local0
+
+    defaults
+        mode http
+        log global
+        option httplog
+
+        timeout connect 5s
+        timeout client 30s
+        timeout server 30s
+
+    frontend http_front
+        bind :80
+        redirect scheme https code 301
+        #http-request return status 403 content-type "text/plain" lf-string "Admin page is blocked\n" if { path_reg ^/.*\/admin(?:/|$) }
+        default_backend nginx_ingress
+    frontend https_front
+        bind :443 ssl crt /etc/haproxy/certs/
+        acl blocked_ua hdr_sub(user-agent) -i hadabala
+        http-request return status 403 content-type "text/plain" lf-string "Admin page is blocked\n" if { path_reg ^/.*\/admin(?:/|$) }
+        # Block hadabala User-Agent
+        http-request return status 403 content-type "text/plain" lf-string "User-Agent hadabala is blocked\n" if blocked_ua
+        default_backend nginx_ingress
+
+
+    backend nginx_ingress
+        balance roundrobin
+        server nginx-ingress nginx-ingress-controller.nginx-ingress.svc.cluster.local:80 check

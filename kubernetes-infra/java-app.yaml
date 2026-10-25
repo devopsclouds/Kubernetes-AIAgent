@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  
+  name: javaapp-service
+  namespace: dev
+  
+spec:
+  
+  replicas: 1
+  selector:
+    matchLabels:
+      app: javaapp-service
+  template:
+    metadata:
+      labels:
+        app: javaapp-service
+    spec:
+      containers:
+      - image: docker89781/javawebapp:blueversion
+        imagePullPolicy: Always
+        name: javaapp-service
+        

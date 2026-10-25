@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  
+  name: javaapp-service
+  namespace: dev
+  
+spec:
+  ingressClassName: nginx
+  #tls:
+  #- hosts:
+    #- myapp1.local
+    #secretName: myapp1-tls
+
+  rules:
+  - host: myapp1.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: javaapp-service
+            port:
+              number: 8080
+        path: /sample
+        pathType: Prefix
+status:
+  loadBalancer: {}
