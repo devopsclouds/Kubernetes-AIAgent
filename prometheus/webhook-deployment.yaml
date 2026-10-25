@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-incident-agent-webhook
+  namespace: monitoring
+  labels:
+    app: k8s-incident-agent-webhook
+    release: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-incident-agent-webhook
+  template:
+    metadata:
+      labels:
+        app: k8s-incident-agent-webhook
+    spec:
+      serviceAccountName: incident-agent-sa
+      containers:
+      - name: webhook
+        image: docker89781/k8s-incident-agent:latest
+        imagePullPolicy: Always           # uses  image from docker registry
+        ports:
+        - containerPort: 5005
+        env:
+        - name: EMAIL_SENDER
+          valueFrom:
+            secretKeyRef:
+              name: agent-email-secret
+              key: sender
+        - name: EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: agent-email-secret
+              key: password
+        - name: EMAIL_RECIPIENT
+          value: "devops.clouds8978@gmail.com"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5005
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5005
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-incident-agent-webhook
+  namespace: monitoring
+  labels:
+   release: prometheus
+spec:
+  selector:
+    app: k8s-incident-agent-webhook
+  ports:
+  - port: 5005
+    targetPort: 5005
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: incident-agent-sa
+  namespace: monitoring
+  labels:
+   release: prometheus
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: incident-agent-role
+  labels:
+   release: prometheus
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "describe"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: incident-agent-rolebinding
+  labels:
+   release: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: incident-agent-role
+subjects:
+- kind: ServiceAccount
+  name: incident-agent-sa
+  namespace: monitoring
