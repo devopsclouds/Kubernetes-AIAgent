@@ -26,12 +26,45 @@ data:
     frontend https_front
         bind :443 ssl crt /etc/haproxy/certs/
         acl blocked_ua hdr_sub(user-agent) -i hadabala
+         # Rate limit
+        # Track client IP and request/error rates
+        stick-table type ip size 100k expire 10m store http_req_rate(10s) store http_err_rate(10s)
+        http-request track-sc0 src
+        # Temporarily block IP after 10 HTTP errors in 30 sec
+        http-request deny deny_status 403 if { sc_http_err_rate(0) gt 5 }
+        http-request return status 429 content-type "text/plain" lf-string "Too many requests\n" if { sc_http_req_rate(0) gt 10 }
+        
+
         http-request return status 403 content-type "text/plain" lf-string "Admin page is blocked\n" if { path_reg ^/.*\/admin(?:/|$) }
         # Block hadabala User-Agent
         http-request return status 403 content-type "text/plain" lf-string "User-Agent hadabala is blocked\n" if blocked_ua
+
+         # --------------------------------------------------------
+    # NGINX -> APISIX migration
+    #
+    # Requests for myapp1.local will use the migration
+    # backend, which distributes traffic 50/50.
+    # --------------------------------------------------------
+
+        acl is_myapp hdr(host) -i myapp1.local
+
+        use_backend myapp_migration if is_myapp
+
+
+    # --------------------------------------------------------
+    # Default traffic
+    # --------------------------------------------------------
         default_backend nginx_ingress
 
 
+    backend myapp_migration
+    mode http
+    balance roundrobin
+
+    server nginx nginx-ingress-controller.nginx-ingress.svc.cluster.local:80 check weight 50
+    server apisix apisix-gateway.gateway-api.svc.cluster.local:80 check weight 50
+
+
     backend nginx_ingress
-        balance roundrobin
-        server nginx-ingress nginx-ingress-controller.nginx-ingress.svc.cluster.local:80 check
+    mode http
+    server nginx nginx-ingress-controller.nginx-ingress.svc.cluster.local:80 check
